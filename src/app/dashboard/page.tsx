@@ -1,0 +1,299 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { getAllConversations } from '@/lib/chatContext';
+import { getTickets } from '@/lib/ticketSystem';
+import { faqs } from '@/lib/faqData';
+
+interface DailyStats {
+  date: string;
+  label: string;
+  conversations: number;
+  resolved: number;
+  satisfaction: number;
+}
+
+function generateMockData(): DailyStats[] {
+  const days = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
+  const today = new Date();
+  return days.map((label, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - (6 - i));
+    const date = `${d.getMonth() + 1}/${d.getDate()}`;
+    const base = 40 + Math.sin(i * 1.2) * 20;
+    return {
+      date,
+      label,
+      conversations: Math.round(base + Math.random() * 15),
+      resolved: Math.round(75 + Math.random() * 20),
+      satisfaction: Math.round(82 + Math.random() * 15),
+    };
+  });
+}
+
+function TopFAQItem({ rank, question, count }: { rank: number; question: string; count: number }) {
+  const maxCount = 120;
+  const barWidth = Math.min((count / maxCount) * 100, 100);
+  return (
+    <div className="flex items-center gap-3 py-2">
+      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+        rank === 1 ? 'bg-amber-400 text-amber-900' :
+        rank === 2 ? 'bg-slate-300 text-slate-700' :
+        rank === 3 ? 'bg-orange-400 text-orange-900' :
+        'bg-white/10 text-slate-400'
+      }`}>
+        {rank}
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between text-xs mb-1">
+          <span className="text-slate-200 truncate">{question}</span>
+          <span className="text-slate-400 ml-2 flex-shrink-0">{count} 次</span>
+        </div>
+        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${
+              rank === 1 ? 'bg-amber-400' :
+              rank === 2 ? 'bg-slate-300' :
+              rank === 3 ? 'bg-orange-400' :
+              'bg-indigo-400'
+            }`}
+            style={{ width: `${barWidth}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  const [dailyData, setDailyData] = useState<DailyStats[]>([]);
+  const [stats, setStats] = useState({ conversations: 0, resolved: 0, satisfaction: 0 });
+  const [totalTickets, setTotalTickets] = useState({ open: 0, resolved: 0 });
+  const [topFAQs, setTopFAQs] = useState<{ question: string; count: number }[]>([]);
+
+  useEffect(() => {
+    // Load real stats
+    const savedStats = localStorage.getItem('sierra_stats');
+    if (savedStats) {
+      setStats(JSON.parse(savedStats));
+    } else {
+      const mock = { conversations: 247, resolved: 89, satisfaction: 94 };
+      setStats(mock);
+      localStorage.setItem('sierra_stats', JSON.stringify(mock));
+    }
+
+    // Daily data
+    setDailyData(generateMockData());
+
+    // Tickets
+    const tickets = getTickets();
+    setTotalTickets({
+      open: tickets.filter(t => t.status === 'open' || t.status === 'in-progress').length,
+      resolved: tickets.filter(t => t.status === 'resolved').length,
+    });
+
+    // Top FAQs from real conversations
+    const allConv = getAllConversations();
+    const faqCounts: Record<string, number> = {};
+    allConv.forEach(conv => {
+      conv.messages.filter(m => m.role === 'user').forEach(m => {
+        const matched = faqs.find(fq =>
+          fq.keywords.some(kw => m.content.toLowerCase().includes(kw.toLowerCase()))
+        );
+        if (matched) {
+          const key = matched.answer['zh-TW'].slice(0, 30);
+          faqCounts[key] = (faqCounts[key] || 0) + 1;
+        }
+      });
+    });
+    const sorted = Object.entries(faqCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([q, c]) => ({ question: q + '...', count: c }));
+
+    // Fallback mock if no real data
+    if (sorted.length < 5) {
+      setTopFAQs([
+        { question: '關於價格與方案諮詢', count: 87 },
+        { question: '如何開通與設定帳戶', count: 63 },
+        { question: '密碼重設與登入問題', count: 45 },
+        { question: '功能介紹與使用方式', count: 38 },
+        { question: '付款方式相關問題', count: 29 },
+      ]);
+    } else {
+      setTopFAQs(sorted);
+    }
+  }, []);
+
+  const maxConv = Math.max(...dailyData.map(d => d.conversations), 1);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 to-slate-900 text-white">
+      {/* Header */}
+      <header className="border-b border-white/10 bg-slate-950/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="text-slate-400 hover:text-white transition-colors text-sm">← 首頁</Link>
+            <span className="text-slate-600">|</span>
+            <h1 className="font-semibold text-sm">📊 數據儀表板</h1>
+          </div>
+          <div className="text-xs text-slate-500">
+            數據更新：{new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' })}
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { icon: '💬', label: '總對話數', value: stats.conversations || 247, color: 'indigo' },
+            { icon: '✅', label: '解決率', value: `${stats.resolved || 89}%`, color: 'emerald' },
+            { icon: '⭐', label: '滿意度', value: `${stats.satisfaction || 94}%`, color: 'amber' },
+            { icon: '🎫', label: '待處理工單', value: totalTickets.open, color: 'red' },
+          ].map(k => (
+            <div key={k.label} className={`rounded-2xl border border-white/10 bg-white/5 p-5`}>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-2xl">{k.icon}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full bg-${k.color}-400/20 text-${k.color}-300`}>
+                  7日
+                </span>
+              </div>
+              <p className="text-2xl font-bold">{k.value}</p>
+              <p className="text-slate-400 text-xs mt-1">{k.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Conversation Trend */}
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-lg font-semibold mb-6">📈 近 7 天對話量趨勢</h2>
+          <div className="flex items-end gap-3" style={{ height: '180px' }}>
+            {dailyData.map((d, i) => {
+              const heightPct = (d.conversations / maxConv) * 100;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                  <div className="w-full flex flex-col items-center justify-end" style={{ height: '150px' }}>
+                    <div
+                      className="w-full bg-gradient-to-t from-indigo-600 to-indigo-400 rounded-t-lg relative group cursor-default transition-all hover:brightness-125"
+                      style={{ height: `${heightPct}%`, minHeight: '8px' }}
+                      title={`${d.label} ${d.date}: ${d.conversations} 對話`}
+                    >
+                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-white/20">
+                        {d.conversations} 對話
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs text-slate-500">{d.label}</span>
+                  <span className="text-xs text-slate-600">{d.date}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Resolution & Satisfaction lines */}
+          <div className="mt-6 grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-slate-400 mb-2">平均解決率</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-bold text-emerald-400">
+                  {Math.round(dailyData.reduce((a, d) => a + d.resolved, 0) / dailyData.length)}%
+                </span>
+                <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full"
+                    style={{ width: `${dailyData.reduce((a, d) => a + d.resolved, 0) / dailyData.length}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 mb-2">平均滿意度</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-bold text-amber-400">
+                  {Math.round(dailyData.reduce((a, d) => a + d.satisfaction, 0) / dailyData.length)}%
+                </span>
+                <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-600 to-amber-400 rounded-full"
+                    style={{ width: `${dailyData.reduce((a, d) => a + d.satisfaction, 0) / dailyData.length}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Hot FAQs + Ticket Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <h2 className="text-lg font-semibold mb-4">🔥 熱門問題排行榜</h2>
+            <div className="space-y-1">
+              {topFAQs.map((faq, i) => (
+                <TopFAQItem key={i} rank={i + 1} question={faq.question} count={faq.count} />
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <h2 className="text-lg font-semibold mb-4">🎫 工單概覽</h2>
+            <div className="space-y-4">
+              {[
+                { label: '待處理', value: totalTickets.open, color: 'red', icon: '⏳' },
+                { label: '已解決', value: totalTickets.resolved, color: 'emerald', icon: '✅' },
+                { label: '總計', value: totalTickets.open + totalTickets.resolved, color: 'indigo', icon: '📋' },
+              ].map(s => (
+                <div key={s.label} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span>{s.icon}</span>
+                    <span className="text-sm text-slate-300">{s.label}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-32 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full bg-${s.color}-400 rounded-full`}
+                        style={{ width: `${totalTickets.open + totalTickets.resolved > 0 ? (s.value / (totalTickets.open + totalTickets.resolved)) * 100 : 0}%` }}
+                      />
+                    </div>
+                    <span className="text-lg font-bold w-10 text-right">{s.value}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Link
+              href="/tickets"
+              className="mt-6 block w-full py-2.5 bg-white/10 hover:bg-white/20 border border-white/10 hover:border-white/30 rounded-xl text-sm text-center transition-colors"
+            >
+              前往工單系統 →
+            </Link>
+          </div>
+        </div>
+
+        {/* Language Distribution */}
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-lg font-semibold mb-4">🌐 語言分布</h2>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            {[
+              { lang: '繁體中文', flag: '🇹🇼', pct: 68, color: 'indigo' },
+              { lang: 'English', flag: '🇺🇸', pct: 22, color: 'emerald' },
+              { lang: '簡體中文', flag: '🇨🇳', pct: 10, color: 'amber' },
+            ].map(l => (
+              <div key={l.lang} className="bg-white/5 rounded-xl p-4">
+                <span className="text-3xl">{l.flag}</span>
+                <p className="text-sm mt-2 text-slate-300">{l.lang}</p>
+                <p className={`text-2xl font-bold mt-1 text-${l.color}-400`}>{l.pct}%</p>
+                <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full bg-${l.color}-400 rounded-full`}
+                    style={{ width: `${l.pct}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
