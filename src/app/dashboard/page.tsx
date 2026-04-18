@@ -71,7 +71,6 @@ export default function DashboardPage() {
   const [topFAQs, setTopFAQs] = useState<{ question: string; count: number }[]>([]);
 
   useEffect(() => {
-    // Load real stats
     const savedStats = localStorage.getItem('sierra_stats');
     if (savedStats) {
       setStats(JSON.parse(savedStats));
@@ -81,10 +80,8 @@ export default function DashboardPage() {
       localStorage.setItem('sierra_stats', JSON.stringify(mock));
     }
 
-    // Daily data
     setDailyData(generateMockData());
 
-    // Top FAQs from real conversations
     const allConv = getAllConversations();
     const faqCounts: Record<string, number> = {};
     allConv.forEach(conv => {
@@ -103,7 +100,6 @@ export default function DashboardPage() {
       .slice(0, 5)
       .map(([q, c]) => ({ question: q + '...', count: c }));
 
-    // Fallback mock if no real data
     if (sorted.length < 5) {
       setTopFAQs([
         { question: '關於價格與方案諮詢', count: 87 },
@@ -121,7 +117,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 to-slate-900 text-white">
-      {/* Header */}
       <header className="border-b border-white/10 bg-slate-950/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -137,18 +132,15 @@ export default function DashboardPage() {
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           {[
-            { icon: '💬', label: '總對話數', value: stats.conversations || 247, color: 'indigo' },
-            { icon: '✅', label: '解決率', value: `${stats.resolved || 89}%`, color: 'emerald' },
-            { icon: '⭐', label: '滿意度', value: `${stats.satisfaction || 94}%`, color: 'amber' },
+            { icon: '💬', label: '總對話數', value: stats.conversations || 247 },
+            { icon: '✅', label: '解決率', value: `${stats.resolved || 89}%` },
+            { icon: '⭐', label: '滿意度', value: `${stats.satisfaction || 94}%` },
           ].map(k => (
-            <div key={k.label} className={`rounded-2xl border border-white/10 bg-white/5 p-5`}>
+            <div key={k.label} className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-2xl">{k.icon}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full bg-${k.color}-400/20 text-${k.color}-300`}>
-                  7日
-                </span>
               </div>
               <p className="text-2xl font-bold">{k.value}</p>
               <p className="text-slate-400 text-xs mt-1">{k.label}</p>
@@ -182,7 +174,6 @@ export default function DashboardPage() {
             })}
           </div>
 
-          {/* Resolution & Satisfaction lines */}
           <div className="mt-6 grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-slate-400 mb-2">平均解決率</p>
@@ -215,7 +206,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Hot FAQs + Ticket Summary */}
+        {/* Hot FAQs + Language Distribution */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
             <h2 className="text-lg font-semibold mb-4">🔥 熱門問題排行榜</h2>
@@ -225,31 +216,25 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
-        </div>
-          </div>
-        </div>
 
-        {/* Language Distribution */}
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <h2 className="text-lg font-semibold mb-4">🌐 語言分布</h2>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            {[
-              { lang: '繁體中文', flag: '🇹🇼', pct: 68, color: 'indigo' },
-              { lang: 'English', flag: '🇺🇸', pct: 22, color: 'emerald' },
-              { lang: '簡體中文', flag: '🇨🇳', pct: 10, color: 'amber' },
-            ].map(l => (
-              <div key={l.lang} className="bg-white/5 rounded-xl p-4">
-                <span className="text-3xl">{l.flag}</span>
-                <p className="text-sm mt-2 text-slate-300">{l.lang}</p>
-                <p className={`text-2xl font-bold mt-1 text-${l.color}-400`}>{l.pct}%</p>
-                <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full bg-${l.color}-400 rounded-full`}
-                    style={{ width: `${l.pct}%` }}
-                  />
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <h2 className="text-lg font-semibold mb-4">🌐 語言分布</h2>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              {[
+                { lang: '繁體中文', flag: '🇹🇼', pct: 68 },
+                { lang: 'English', flag: '🇺🇸', pct: 22 },
+                { lang: '簡體中文', flag: '🇨🇳', pct: 10 },
+              ].map(l => (
+                <div key={l.lang} className="bg-white/5 rounded-xl p-4">
+                  <span className="text-3xl">{l.flag}</span>
+                  <p className="text-sm mt-2 text-slate-300">{l.lang}</p>
+                  <p className="text-2xl font-bold mt-1 text-indigo-400">{l.pct}%</p>
+                  <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${l.pct}%` }} />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>
