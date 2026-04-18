@@ -12,6 +12,13 @@ interface Message {
   language?: Language;
 }
 
+const ESCALATION_KEYWORDS = ['轉真人', '客服', '人工', 'real agent', 'human', '人工客服', '转人工', '转真人', '找客服'];
+
+function isEscalation(text: string): boolean {
+  const lower = text.toLowerCase();
+  return ESCALATION_KEYWORDS.some(kw => lower.includes(kw.toLowerCase()));
+}
+
 function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -32,6 +39,7 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [language, setLanguage] = useState<Language>('zh-TW');
+  const [isEscalated, setIsEscalated] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -73,13 +81,25 @@ export default function ChatPage() {
   };
 
   const sendBotReply = (userText: string, detectedLang: Language) => {
+    // Escalation check
+    if (isEscalation(userText)) {
+      setIsEscalated(true);
+      const reply = detectedLang === 'zh-CN'
+        ? '好的，我為您轉接真人客服！請稍候，我們的客服專員很快就會回覆您。🔄\n\n在此期間，您可以繼續描述您的問題，我們的團隊會同步收到記錄。'
+        : detectedLang === 'en'
+        ? 'Okay, I am transferring you to a human agent! Please hold on, our support specialist will be with you shortly. 🔄\n\nWhile you wait, feel free to describe your issue — our team will receive the transcript.'
+        : '好的，我為您轉接真人客服！請稍候，我們的客服專員很快就會回覆您。🔄\n\n在此期間，您可以繼續描述您的問題，我們的團隊會同步收到記錄。';
+      return reply;
+    }
+
     const answer = findFAQAnswer(userText, detectedLang);
     if (answer) return answer;
 
+    // Fallback based on language
     const fallbacks: Record<Language, string> = {
-      'zh-TW': '🤔 抱歉，我目前無法回答這個問題。我已將您的问题记录下来，客服团队会尽快与您联系。',
-      'zh-CN': '🤔 抱歉，我目前无法回答这个问题。我已将您的问题记录下来，客服团队会尽快与您联系。',
-      'en': '🤔 I\'m sorry, I\'m unable to answer this question at the moment. I\'ve logged your issue and our team will follow up shortly.',
+      'zh-TW': '感謝您的提問！這個問題我可以幫您記錄下來，我們的團隊會盡快回覆您。您也可以嘗試更詳細地描述問題，或點擊「建立工單」讓我們的客服專員處理。',
+      'zh-CN': '感谢您的提问！这个问题我可以帮您记录下来，我们的团队会尽快回复您。您也可以尝试更详细地描述问题，或点击「建立工单」让我们的客服专员处理。',
+      'en': 'Thanks for your question! I have noted this down and our team will get back to you shortly. Try describing your issue in more detail, or click "Create Ticket" and our support specialist will follow up.',
     };
     return fallbacks[detectedLang];
   };
@@ -131,6 +151,7 @@ export default function ChatPage() {
   const handleClear = () => {
     clearConversation(SESSION_ID);
     setMessages(INITIAL_MESSAGES);
+    setIsEscalated(false);
   };
 
   // Stats tracking
@@ -145,6 +166,14 @@ export default function ChatPage() {
     }
   }, []);
 
+  const escaladeText = isEscalated
+    ? language === 'zh-CN'
+      ? '🔴 已轉接真人客服'
+      : language === 'en'
+      ? '🔴 Transferred to human agent'
+      : '🔴 已轉接真人客服'
+    : null;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 to-slate-900 text-white flex flex-col">
       {/* Header */}
@@ -156,6 +185,11 @@ export default function ChatPage() {
             <h1 className="font-semibold text-sm">💬 對話中</h1>
           </div>
           <div className="flex items-center gap-3">
+            {escaladeText && (
+              <span className="text-xs bg-red-500/20 text-red-300 px-3 py-1 rounded-full border border-red-500/30">
+                {escaladeText}
+              </span>
+            )}
             <button
               onClick={handleClear}
               className="text-xs text-slate-400 hover:text-white transition-colors px-3 py-1 rounded border border-white/10 hover:border-white/30"
@@ -213,7 +247,7 @@ export default function ChatPage() {
       <div className="border-t border-white/10 bg-slate-950/50">
         <div className="max-w-3xl mx-auto px-4 py-3">
           <div className="flex flex-wrap gap-2 mb-3">
-            {['價格方案', '如何開通', '忘記密碼'].map(q => (
+            {['價格方案', '如何開通', '忘記密碼', '聯絡客服'].map(q => (
               <button
                 key={q}
                 onClick={() => { setInput(q); inputRef.current?.focus(); }}
@@ -223,6 +257,17 @@ export default function ChatPage() {
               </button>
             ))}
           </div>
+
+          {isEscalated && (
+            <div className="mb-3">
+              <Link
+                href={`/tickets?session=${SESSION_ID}`}
+                className="inline-flex items-center gap-2 text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 rounded-xl px-4 py-2 transition-colors"
+              >
+                🎫 建立工單（記錄此對話）
+              </Link>
+            </div>
+          )}
         </div>
       </div>
 

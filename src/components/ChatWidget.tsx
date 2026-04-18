@@ -1,12 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { findFAQAnswer, detectLanguage, Language } from '@/lib/faqData';
-import { saveMessage, getConversationContext, getFullConversation } from '@/lib/chatContext';
-import { createTicket, buildConversationSnapshot } from '@/lib/ticketSystem';
-
-const ESCALATION_KEYWORDS = ['轉真人', '真人', '客服人員', '人工', 'real agent', 'human', 'escalate', ' speak to human'];
-const TICKET_KEYWORDS = ['建單', '開工單', '問題', 'issue', 'problem', '需要一个', '需要幫助', '建立工单', '開工單'];
+import { useState, useRef, useEffect } from 'react';
+import { findFAQAnswer, detectLanguage, type Language } from '@/lib/faqData';
+import { saveMessage, getConversationContext } from '@/lib/chatContext';
 
 function generateSessionId() {
   return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -18,22 +14,10 @@ const DEFAULT_GREETING: Record<Language, string> = {
   'zh-CN': '👋 您好！我是 Sierra AI 客服，很高兴为您服务。请输入您想问的问题，我会立即为您解答。',
 };
 
-const ESCALATION_MSG: Record<Language, string> = {
-  'zh-TW': '🔔 我已通知真人客服團隊，他們將儘快與您聯繫。請稍候，您的對話記錄已完整保留。',
-  'en': '🔔 I\'ve notified our live support team. They will contact you shortly. Your conversation history has been saved.',
-  'zh-CN': '🔔 我已通知真人客服团队，他们将尽快与您联繫。您的对话记录已完整保留。',
-};
-
-const TICKET_MSG: Record<Language, string> = {
-  'zh-TW': '📝 我已為您建立工單，客服團隊將儘快處理並回覆您。',
-  'en': '📝 I\'ve created a support ticket for you. Our team will handle it and get back to you soon.',
-  'zh-CN': '📝 我已为您建立工单，客服团队将尽快处理并回复您。',
-};
-
 const FALLBACK_MSG: Record<Language, string> = {
   'zh-TW': '🤔 抱歉，我目前無法回答這個問題。我已將您的问题记录下来，客服团队会尽快与您联系。',
   'en': '🤔 I\'m sorry, I\'m unable to answer this question at the moment. I\'ve logged your issue and our team will follow up shortly.',
-  'zh-CN': '🤔 抱歉，我目前无法回答这个问题。我已将您的问题记录下来，客服团队会尽快与您联繫。',
+  'zh-CN': '🤔 抱歉，我目前无法回答这个问题。我已将您的问题记录下来，客服团队会尽快与您联系。',
 };
 
 interface Message {
@@ -52,15 +36,8 @@ export default function ChatWidget({ sessionId: externalSessionId, embedded = fa
   const [sessionId] = useState(() => externalSessionId || generateSessionId());
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [isEscalating, setIsEscalating] = useState(false);
   const [language, setLanguage] = useState<Language>('zh-TW');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const sendNotification = useCallback((type: 'escalation' | 'ticket', data: Record<string, unknown>) => {
-    if (typeof window !== 'undefined' && window.parent !== window) {
-      window.parent.postMessage({ type, data, sessionId }, '*');
-    }
-  }, [sessionId]);
 
   useEffect(() => {
     const saved = getConversationContext(sessionId);
@@ -79,41 +56,6 @@ export default function ChatWidget({ sessionId: externalSessionId, embedded = fa
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  const handleEscalation = (lang: Language) => {
-    setIsEscalating(true);
-    const fullConv = getFullConversation(sessionId);
-    const assistantMsg: Message = {
-      id: `escalate_${Date.now()}`,
-      role: 'assistant',
-      content: ESCALATION_MSG[lang],
-      timestamp: Date.now(),
-    };
-    const newMessages = [...messages, assistantMsg];
-    setMessages(newMessages);
-    saveMessage(sessionId, { ...assistantMsg, language: lang });
-    sendNotification('escalation', { messages: fullConv, timestamp: Date.now() });
-  };
-
-  const handleTicket = (lang: Language, conversation: Message[]) => {
-    const snapshot = buildConversationSnapshot(conversation);
-    createTicket({
-      sessionId,
-      summary: conversation[conversation.length - 1]?.content.slice(0, 100) || 'User inquiry',
-      conversationSnapshot: snapshot,
-      language: lang,
-    });
-    const assistantMsg: Message = {
-      id: `ticket_${Date.now()}`,
-      role: 'assistant',
-      content: TICKET_MSG[lang],
-      timestamp: Date.now(),
-    };
-    const newMessages = [...messages, assistantMsg];
-    setMessages(newMessages);
-    saveMessage(sessionId, { ...assistantMsg, language: lang });
-    sendNotification('ticket', { sessionId, summary: snapshot, timestamp: Date.now() });
-  };
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -136,29 +78,9 @@ export default function ChatWidget({ sessionId: externalSessionId, embedded = fa
     setLanguage(lang);
     setInput('');
 
-    // 檢查關鍵字
-    const lowerInput = input.toLowerCase();
-    const isEscalation = ESCALATION_KEYWORDS.some(kw => lowerInput.includes(kw.toLowerCase()));
-    const isTicket = TICKET_KEYWORDS.some(kw => lowerInput.includes(kw.toLowerCase()));
-
-    if (isEscalation) {
-      handleEscalation(lang);
-      return;
-    }
-
-    if (isTicket) {
-      handleTicket(lang, newMessages);
-      return;
-    }
-
-    // 關鍵字匹配回答
+    // FAQ keyword matching
     const answer = findFAQAnswer(input, lang);
-    let response: string;
-    if (answer) {
-      response = answer;
-    } else {
-      response = FALLBACK_MSG[lang];
-    }
+    const response = answer || FALLBACK_MSG[lang];
 
     const assistantMsg: Message = {
       id: `asst_${Date.now()}`,
@@ -216,7 +138,7 @@ export default function ChatWidget({ sessionId: externalSessionId, embedded = fa
           />
           <button
             onClick={handleSend}
-            disabled={!input.trim() || isEscalating}
+            disabled={!input.trim()}
             className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors shrink-0"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -225,7 +147,7 @@ export default function ChatWidget({ sessionId: externalSessionId, embedded = fa
           </button>
         </div>
         <div className="text-center text-xs text-gray-400 mt-2">
-          按 Enter 傳送 · 輸入「轉真人」連接專人服務
+          按 Enter 傳送
         </div>
       </div>
     </div>

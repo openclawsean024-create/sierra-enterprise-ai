@@ -19,7 +19,7 @@ export default function HomePage() {
             🤖 AI Customer Agent · 24/7 Online
           </div>
           <h1 className="text-4xl font-bold mb-3">Sierra 企業客服 AI</h1>
-          <p className="text-slate-400 max-w-xl mx-auto">中小企客服場景的 AI Agent，全天候處理常見問題、引導操作、必要時轉接真人。</p>
+          <p className="text-slate-400 max-w-xl mx-auto">中小企客服場景的 AI Agent，全天候處理常見問題、引導操作，降低人工客服負擔。</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -43,15 +43,12 @@ export default function HomePage() {
           <Link href="/dashboard" className="px-8 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-semibold text-center transition-colors">
             📊 儀表板
           </Link>
-          <Link href="/tickets" className="px-8 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-semibold text-center transition-colors">
-            🎫 工單系統
-          </Link>
         </div>
 
         <div className="mt-12 rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="text-lg font-semibold mb-4">🤖 核心功能</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            {['FAQ 關鍵字匹配', '3 輪對話記憶', '真人接管機制', '多語言自動切換', '工單自動建立', '滿意度評分', 'CSV 匯出', 'Widget 嵌入'].map(f => (
+            {['FAQ 智能匹配', '3 輪對話記憶', '嵌入 Widget', '數據分析儀表板', 'API Key 管理', '滿意度評分', 'CSV 匯出', '手機響應式'].map(f => (
               <div key={f} className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2">
                 <span className="text-emerald-400">✓</span>
                 <span>{f}</span>

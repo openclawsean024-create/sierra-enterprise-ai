@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getAllConversations } from '@/lib/chatContext';
-import { getTickets } from '@/lib/ticketSystem';
 import { faqs } from '@/lib/faqData';
 
 interface DailyStats {
@@ -69,7 +68,6 @@ function TopFAQItem({ rank, question, count }: { rank: number; question: string;
 export default function DashboardPage() {
   const [dailyData, setDailyData] = useState<DailyStats[]>([]);
   const [stats, setStats] = useState({ conversations: 0, resolved: 0, satisfaction: 0 });
-  const [totalTickets, setTotalTickets] = useState({ open: 0, resolved: 0 });
   const [topFAQs, setTopFAQs] = useState<{ question: string; count: number }[]>([]);
 
   useEffect(() => {
@@ -85,13 +83,6 @@ export default function DashboardPage() {
 
     // Daily data
     setDailyData(generateMockData());
-
-    // Tickets
-    const tickets = getTickets();
-    setTotalTickets({
-      open: tickets.filter(t => t.status === 'open' || t.status === 'in-progress').length,
-      resolved: tickets.filter(t => t.status === 'resolved').length,
-    });
 
     // Top FAQs from real conversations
     const allConv = getAllConversations();
@@ -151,7 +142,6 @@ export default function DashboardPage() {
             { icon: '💬', label: '總對話數', value: stats.conversations || 247, color: 'indigo' },
             { icon: '✅', label: '解決率', value: `${stats.resolved || 89}%`, color: 'emerald' },
             { icon: '⭐', label: '滿意度', value: `${stats.satisfaction || 94}%`, color: 'amber' },
-            { icon: '🎫', label: '待處理工單', value: totalTickets.open, color: 'red' },
           ].map(k => (
             <div key={k.label} className={`rounded-2xl border border-white/10 bg-white/5 p-5`}>
               <div className="flex items-center justify-between mb-3">
@@ -235,38 +225,7 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <h2 className="text-lg font-semibold mb-4">🎫 工單概覽</h2>
-            <div className="space-y-4">
-              {[
-                { label: '待處理', value: totalTickets.open, color: 'red', icon: '⏳' },
-                { label: '已解決', value: totalTickets.resolved, color: 'emerald', icon: '✅' },
-                { label: '總計', value: totalTickets.open + totalTickets.resolved, color: 'indigo', icon: '📋' },
-              ].map(s => (
-                <div key={s.label} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span>{s.icon}</span>
-                    <span className="text-sm text-slate-300">{s.label}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="h-2 w-32 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full bg-${s.color}-400 rounded-full`}
-                        style={{ width: `${totalTickets.open + totalTickets.resolved > 0 ? (s.value / (totalTickets.open + totalTickets.resolved)) * 100 : 0}%` }}
-                      />
-                    </div>
-                    <span className="text-lg font-bold w-10 text-right">{s.value}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <Link
-              href="/tickets"
-              className="mt-6 block w-full py-2.5 bg-white/10 hover:bg-white/20 border border-white/10 hover:border-white/30 rounded-xl text-sm text-center transition-colors"
-            >
-              前往工單系統 →
-            </Link>
+        </div>
           </div>
         </div>
 
