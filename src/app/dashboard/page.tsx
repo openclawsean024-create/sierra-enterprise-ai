@@ -206,33 +206,13 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Hot FAQs + Language Distribution */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Hot FAQs */}
+        <div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
             <h2 className="text-lg font-semibold mb-4">🔥 熱門問題排行榜</h2>
             <div className="space-y-1">
               {topFAQs.map((faq, i) => (
                 <TopFAQItem key={i} rank={i + 1} question={faq.question} count={faq.count} />
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <h2 className="text-lg font-semibold mb-4">🌐 語言分布</h2>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              {[
-                { lang: '繁體中文', flag: '🇹🇼', pct: 68 },
-                { lang: 'English', flag: '🇺🇸', pct: 22 },
-                { lang: '簡體中文', flag: '🇨🇳', pct: 10 },
-              ].map(l => (
-                <div key={l.lang} className="bg-white/5 rounded-xl p-4">
-                  <span className="text-3xl">{l.flag}</span>
-                  <p className="text-sm mt-2 text-slate-300">{l.lang}</p>
-                  <p className="text-2xl font-bold mt-1 text-indigo-400">{l.pct}%</p>
-                  <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${l.pct}%` }} />
-                  </div>
-                </div>
               ))}
             </div>
           </div>
